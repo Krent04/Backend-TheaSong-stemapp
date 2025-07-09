@@ -1,3 +1,6 @@
+// === LAAD .env BESTAND VOOR VEILIGE CREDENTIALS ===
+require('dotenv').config();
+
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -341,13 +344,19 @@ app.post("/subadmin-aanvraag-actie", checkSubadminPassword, (req, res) => {
       aanvraag.stemcode = code;
       stemcodes[code] = aanvraag.id;
       transporter.sendMail({
-        from: '"Songfestival" <theaterscholensongfestival@gmail.com>',
+        from: `"Songfestival" <${process.env.SMTP_USER}>`,
         to: aanvraag.email,
         subject: "Je stemcode voor het Songfestival",
         text: `Gefeliciteerd! Je aanvraag is goedgekeurd. Je unieke stemcode is: ${code}\nGebruik deze code om je stem uit te brengen.`,
         html: `<p>Gefeliciteerd! Je aanvraag is goedgekeurd.<br>Jouw unieke stemcode is: <b>${code}</b></p>
         <p>Gebruik deze code om je stem uit te brengen.</p>`
-      }).catch(() => {});
+      })
+      .then(info => {
+        console.log('Mail verzonden:', info.response);
+      })
+      .catch(err => {
+        console.error('Mail error:', err);
+      });
     }
     res.json({ message: `Aanvraag goedgekeurd door ${subadmin}.` });
   } else if (actie === "afkeuren") {
@@ -572,9 +581,15 @@ app.get("/results", checkAdminPassword, (req, res) => {
   `);
 });
 
+// ===== Nodemailer Transporter met veilige .env-gegevens =====
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com", port: 587, secure: false,
-  auth: { user: "theaterscholensongfestival@gmail.com", pass: "vfjvdlyonrgmkxxe" }
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
 });
 
 app.listen(PORT, '0.0.0.0', () => {
