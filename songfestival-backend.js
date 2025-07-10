@@ -139,6 +139,7 @@ app.post("/vote", (req, res) => {
 
   const { puntenVerdeling, code } = req.body;
 
+  // === STEMMEN VIA STEMCODE ===
   if (code) {
     const aanvraag = aanvragen.find(
       a => a.stemcode && a.stemcode.toUpperCase() === code.trim().toUpperCase()
@@ -178,8 +179,11 @@ app.post("/vote", (req, res) => {
       return res.json({ message: "Er is iets mis met de lijst van scholen waar je op stemt." });
     }
 
-    // --- Slechts 1 stem per school! ---
-    stemmenVanSchool[stemmendeSchool] = [puntenVerdeling];
+    // --- Meerdere stemmen per school toestaan en gemiddeld berekenen! ---
+    if (!stemmenVanSchool[stemmendeSchool]) {
+      stemmenVanSchool[stemmendeSchool] = [];
+    }
+    stemmenVanSchool[stemmendeSchool].push(puntenVerdeling);
     aanvraag.heeftGestemd = true; // Markeer code als gebruikt
 
     // Logging
@@ -189,7 +193,7 @@ app.post("/vote", (req, res) => {
     return res.json({ message: "Stem succesvol geregistreerd!" });
   }
 
-  // Oude e-mail flow (mag je weghalen)
+  // === OUDE E-MAIL FLOW ===
   const { email } = req.body;
   if (!email || !puntenVerdeling)
     return res.json({ message: "Email en puntenVerdeling zijn verplicht." });
@@ -222,7 +226,10 @@ app.post("/vote", (req, res) => {
     return res.json({ message: "Er is iets mis met de lijst van scholen waar je op stemt." });
   }
 
-  stemmenVanSchool[stemmendeSchool] = [puntenVerdeling];
+  if (!stemmenVanSchool[stemmendeSchool]) {
+    stemmenVanSchool[stemmendeSchool] = [];
+  }
+  stemmenVanSchool[stemmendeSchool].push(puntenVerdeling);
   gebruikteEmails[emailKey] = true;
 
   return res.json({ message: "Stem succesvol geregistreerd!" });
@@ -236,9 +243,11 @@ function berekenJuryUitslagGemiddelde(stemmenVanSchool, scholen, puntenLijst) {
     const andereScholen = scholen.filter(s => s !== school);
     const scores = {};
     for (const ontvanger of andereScholen) {
+      // Haal per ontvanger ALLE stemmen op, neem het gemiddelde
       const punten = stemmen.map(verdeling => Number(verdeling[ontvanger]) || 0);
       scores[ontvanger] = punten.length ? punten.reduce((a, b) => a + b, 0) / punten.length : 0;
     }
+    // Sorteer op hoogste gemiddelde score naar laag
     const sorted = andereScholen.slice().sort((a, b) => scores[b] - scores[a]);
     const juryPunten = {};
     sorted.forEach((s, i) => {
